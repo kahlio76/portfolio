@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Yuvan Babu. Computer engineering at Purdue, building hardware and the software that runs on it.">
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Yuvan Babu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<style>
+/* Layout: a one-screen editor shell. File tree down the left works as the gallery switcher,
+   one file open in the main pane at a time, a live shell prompt pinned along the bottom. */
+:root {
+  --bg: #000000; --panel: #0A0A0A; --line: #2E2E2E;
+  --fg: #FFFFFF; --dim: #8C8C8C;
+  --accent: #FFFFFF; --brass: #B8B8B8; --ok: #B8B8B8;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --step--1: 0.8125rem; --step-0: 0.9375rem; --step-1: 1.125rem; --step-2: clamp(2rem, 6vw, 3.25rem);
+  color-scheme: dark;
+}
+/* Named skins from the theme command. The default look is the monochrome one above. */
+:root[data-skin="ember"] {
+  --bg: #060504; --panel: #0D0B09; --line: #2A241D; --fg: #EFE5D0; --dim: #8F8370;
+  --accent: #E0694F; --brass: #C8954D; --ok: #9DB27A; color-scheme: dark;
+}
+:root[data-skin="bistre"] {
+  --bg: #1C1815; --panel: #24201B; --line: #3A332B; --fg: #EFE5D0; --dim: #A39680;
+  --accent: #E0694F; --brass: #C8954D; --ok: #9DB27A; color-scheme: dark;
+}
+:root[data-skin="phosphor"] {
+  --bg: #030604; --panel: #08100A; --line: #18301F; --fg: #B7F5C0; --dim: #5E9468;
+  --accent: #4DFF88; --brass: #D6E36A; --ok: #4DFF88; color-scheme: dark;
+}
+:root[data-skin="parchment"] {
+  --bg: #EFE5D0; --panel: #E6DAC0; --line: #CDBE9E; --fg: #1C1815; --dim: #6B5F4E;
+  --accent: #9A2D1F; --brass: #8A6220; --ok: #4F6B2E; color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: var(--step-0); line-height: 1.6; overflow: hidden; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { color: var(--fg); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.app { height: 100%; max-width: 76rem; margin-inline: auto; padding-inline: 16px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; padding-block: 0.6rem; border-bottom: 1px solid var(--line); font-size: var(--step--1); }
+.top .host { color: var(--brass); font-weight: 700; }
+.top .path { color: var(--dim); min-width: 0; overflow-wrap: anywhere; }
+.top .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+
+/* file wheel: a list on phones, a looping fan of cards on desktop */
+.shell { position: relative; }
+.tree { border-right: 1px solid var(--line); padding-block: 1rem; font-size: var(--step--1); display: flex; flex-direction: column; gap: 1px; }
+.tree button { display: flex; align-items: baseline; gap: 0.5rem; text-align: left; background: none; border: 0; padding: 0.3rem 0.75rem 0.3rem 0; cursor: pointer; color: var(--dim); white-space: nowrap; }
+.tree button .n { color: var(--line); font-variant-numeric: tabular-nums; }
+.tree button .t { margin-left: auto; color: var(--line); font-size: 0.72rem; }
+.tree button:hover { color: var(--fg); }
+.tree button.on { color: var(--bg); background: var(--accent); font-weight: 700; }
+.tree button.on .n, .tree button.on .t { color: var(--bg); }
+.tree .hint { display: none; }
+@media (min-width: 761px) {
+  .shell { grid-template-columns: 17rem minmax(0, 1fr); }
+  .tree { display: block; position: relative; overflow: hidden; padding: 0; cursor: ns-resize; touch-action: none; user-select: none; }
+  .tree button {
+    position: absolute; top: 50%; left: 0; width: 11.5rem; height: 3.5rem; margin-top: -1.75rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; gap: 0 0.5rem;
+    padding: 0.4rem 0.7rem; border: 1px solid var(--line); background: var(--panel);
+    transform-origin: left center;
+    transform: translate(var(--x, 0px), var(--y, 0px)) rotate(var(--r, 0deg)) scale(var(--s, 1));
+    opacity: var(--o, 1);
+    transition: transform 0.4s cubic-bezier(.2,.8,.2,1), opacity 0.4s;
+  }
+  .tree button.on { border-color: var(--accent); z-index: 2; }
+  .tree button .n { grid-column: 1 / -1; font-size: 0.68rem; }
+  .tree button .name { font-size: var(--step-0); overflow: hidden; text-overflow: ellipsis; }
+  .tree button .t { align-self: center; }
+  .tree .hint { display: block; position: absolute; left: 0; bottom: 0.6rem; color: var(--dim); font-size: 0.72rem; }
+}
+@media (max-width: 760px) { .tree .g { display: none; } }
+@media (prefers-reduced-motion: reduce) { .tree button { transition: none; } }
+
+/* print-in + sight lines */
+.wait { display: none !important; }
+.gaze { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+
+/* the eye */
+.eye { display: none; position: absolute; right: 0; top: 1rem; margin: 0; font: 700 9px/1 var(--mono); color: var(--line); pointer-events: none; }
+.eye .i { color: var(--dim); } .eye .p { color: var(--accent); }
+@media (min-width: 1240px) { .eye { display: block; } }
+
+/* panes */
+.main { overflow-y: auto; min-width: 0; padding: 1.5rem 0 3rem 2rem; }
+.pane { max-width: 46rem; display: flex; flex-direction: column; gap: 1rem; }
+.prompt { color: var(--dim); margin: 0; font-size: var(--step-0); font-weight: 400; }
+.prompt .u { color: var(--ok); } .prompt .c { color: var(--fg); font-weight: 500; } .prompt .s { color: var(--accent); }
+h1 { font-size: var(--step-2); line-height: 1.05; margin: 0; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-size: clamp(1.5rem, 4vw, 2.1rem); line-height: 1.1; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+h2::before { content: "./"; color: var(--dim); font-weight: 400; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 1rem; }
+.tag { font-size: var(--step--1); color: var(--ok); }
+.tag::before { content: "["; color: var(--dim); } .tag::after { content: "]"; color: var(--dim); }
+.tag.parked { color: var(--brass); }
+.lede { font-size: var(--step-1); line-height: 1.5; margin: 0; max-width: 36rem; }
+.lede em { font-style: normal; color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+.pane p { margin: 0; }
+.pane ul { margin: 0; padding-left: 1.1rem; color: var(--dim); display: grid; gap: 0.3rem; }
+.pane li::marker { content: "- "; color: var(--brass); }
+.stack { font-size: var(--step--1); color: var(--brass); }
+.kv { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 1.25rem; }
+.kv dt { color: var(--brass); } .kv dd { margin: 0; }
+.kv.toml dt::after { content: " ="; color: var(--dim); }
+.row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--fg); font-size: var(--step--1); padding: 0.4rem 0.8rem; text-decoration: none; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.pager { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); justify-content: space-between; }
+.note { color: var(--dim); font-size: var(--step--1); }
+.log { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; color: inherit; }
+.pane .log { padding-left: 0; }
+.log li { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 0.25rem 1.25rem; }
+.log time { color: var(--dim); font-size: var(--step--1); padding-top: 0.15rem; }
+.log p { color: var(--dim); }
+
+/* demo frame shared by the interactive bits */
+.demo { border: 1px solid var(--line); background: var(--panel); }
+.demo > .bar { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; justify-content: space-between; padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--line); font-size: var(--step--1); color: var(--dim); }
+.demo > .bar b { color: var(--brass); font-weight: 500; }
+.demo > .body { padding: 0.9rem 0.75rem; display: grid; gap: 0.75rem; }
+.demo .out { font-size: var(--step--1); color: var(--dim); min-height: 2.6em; }
+.demo .out b { color: var(--fg); font-weight: 500; }
+.demo input[type="text"] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 0.4rem 0.6rem; min-width: 0; flex: 1 1 12rem; }
+#traces { display: block; width: 100%; height: 11rem; cursor: crosshair; }
+
+/* ghost demo */
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+.ctl { border: 1px solid var(--line); background: var(--bg); padding: 0.4rem 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: var(--step--1); min-width: 0; width: 100%; text-align: left; }
+button.ctl { cursor: pointer; }
+button.ctl:hover { border-color: var(--dim); }
+.ctl em { font-style: normal; color: var(--brass); display: inline-block; width: 1.1em; }
+.ctl i { font-style: normal; color: var(--dim); white-space: nowrap; }
+.subs { display: grid; gap: 0.35rem; margin: 0.35rem 0 0.25rem 1.4rem; padding-left: 0.6rem; border-left: 1px solid var(--line); }
+.ctl.hit { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.ghostcur { position: absolute; left: 0; top: 0; width: 22px; height: 22px; z-index: 3; pointer-events: none; opacity: 0.85; transition: transform 0.75s cubic-bezier(.3,.9,.3,1); filter: drop-shadow(0 0 6px var(--accent)); }
+.ghostcur path { fill: var(--fg); stroke: var(--accent); stroke-width: 1.5; }
+
+/* keyboard */
+.kb { display: grid; gap: 3px; }
+.kb .r { display: flex; gap: 3px; }
+.key { flex: 1 1 0; min-width: 0; height: 2.1rem; border: 1px solid var(--line); background: var(--bg); color: var(--dim); font-size: 0.62rem; padding: 0; cursor: pointer; overflow: hidden; white-space: nowrap; }
+.key.ok { border-color: var(--brass); color: var(--brass); }
+.key.down { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.kb.live { outline: 1px dashed var(--accent); outline-offset: 5px; }
+
+/* prompt line */
+.foot { border-top: 1px solid var(--line); font-size: var(--step--1); padding-bottom: env(safe-area-inset-bottom, 0px); }
+#out { padding: 0.5rem 0; border-bottom: 1px solid var(--line); color: var(--dim); white-space: pre-wrap; max-height: 9rem; overflow-y: auto; }
+#out b { color: var(--fg); font-weight: 500; }
+.line { display: flex; align-items: center; gap: 0.6rem; min-height: 2.4rem; }
+.mode { background: var(--accent); color: var(--bg); font-weight: 700; padding: 0.1rem 0.55rem; }
+.line label { color: var(--ok); white-space: nowrap; }
+.line label span { color: var(--accent); }
+#cmd { flex: 1; min-width: 0; font: inherit; color: var(--fg); background: none; border: 0; outline: none; caret-color: var(--accent); }
+#cmd::placeholder { color: var(--line); }
+.bit { color: var(--dim); white-space: nowrap; } .bit span { color: var(--brass); }
+.line button { background: none; border: 0; color: var(--dim); cursor: pointer; padding: 0.2rem 0; white-space: nowrap; }
+.line button:hover { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .tree { flex-direction: row; border-right: 0; touch-action: auto; border-bottom: 1px solid var(--line); padding-block: 0.5rem; overflow-x: auto; overflow-y: hidden; gap: 0.25rem; }
+  .tree .dir { display: none; }
+  .tree button, .tree button.sub { width: auto; padding: 0.3rem 0.6rem; border: 1px solid var(--line); }
+  .tree button.on, .tree button.sub.on { padding: 0.3rem 0.6rem; border-color: var(--accent); }
+  .tree button .t { display: none; }
+  .main { padding: 1.25rem 0 2.5rem; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .log li, .kv { grid-template-columns: minmax(0, 1fr); gap: 0 1rem; }
+  .kv dd { margin-bottom: 0.5rem; }
+  .bit, .line label .h, .mode { display: none; }
+  .key { height: 1.8rem; font-size: 0.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .ghostcur { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="top">
+    <span class="host">yuvan@purdue</span>
+    <span class="path" id="path">~/whoami</span>
+    <span class="count" id="count">1 / 12</span>
+  </div>
+
+  <div class="shell">
+    <nav class="tree" id="tree" aria-label="Files"></nav>
+    <pre class="eye" id="eye" aria-hidden="true"></pre>
+
+    <main class="main" id="main">
+      <section class="pane" data-name="whoami" data-cmd="whoami">
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">whoami</span></p>
+        <h1>Yuvan Babu</h1>
+        <p class="lede">Computer engineering student at Purdue. I build hardware and the software that runs on it, and I'm working toward <em>chip design</em>.</p>
+        <dl class="kv">
+          <dt>school</dt><dd>Purdue University, Computer Engineering, first year</dd>
+          <dt>focus</dt><dd>computer architecture and VLSI</dd>
+          <dt>team</dt><dd>Purdue Electric Racing, High Voltage subteam</dd>
+          <dt>shipped</dt><dd>a macOS app, 15 custom keyboards, one provisional patent</dd>
+        </dl>
+        <div class="row">
+          <button type="button" class="btn primary" data-go="ghost">open projects/ghost</button>
+          <span id="heroLinks" class="row"></span>
+        </div>
+        <div class="demo">
+          <div class="bar"><span><b>route</b> --autoroute</span><span>move your pointer across the board</span></div>
+          <canvas id="traces" aria-label="Decorative animation of circuit traces routing across a board"></canvas>
+        </div>
+        <p class="note">Scroll the wheel on the left, press <b>j</b> / <b>k</b>, or type in the prompt at the bottom. Try <b>help</b>.</p>
+      </section>
+
+      <section class="pane" data-name="ghost" data-group="projects" data-tag="shipped" data-cmd="cat projects/ghost" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/ghost</span></p>
+        <div class="head"><h2>ghost</h2><span class="tag">shipped</span></div>
+        <p class="lede">A macOS menu-bar app that cuts down routine IT help-desk tickets. Ask where a setting is and a ghost cursor floats to the control you're looking for.</p>
+        <div class="demo">
+          <div class="bar"><span><b>demo</b> a toy version of the offline tier, running in your browser</span></div>
+          <div class="body">
+            <div class="row">
+              <input type="text" id="gq" placeholder="what are you looking for?" aria-label="What are you looking for?" autocomplete="off">
+              <button type="button" class="btn primary" id="gfind">find</button>
+            </div>
+            <div class="row" id="gchips"></div>
+            <div class="stage" id="stage">
+              <svg class="ghostcur" id="gcur" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 2 L3 18 L7.5 14 L10.5 20.5 L13.5 19 L10.5 12.8 L16.5 12.8 Z"/></svg>
+            </div>
+            <div class="out" id="gout">Type a question or pick one. The matcher scores every setting, then the cursor opens the right section and goes to the control.</div>
+          </div>
+        </div>
+        <ul>
+          <li>Two tiers: offline fuzzy matching against the Accessibility tree, plus an opt-in LLM planner over the Claude REST API.</li>
+          <li>Plan caching, an OCR fallback for apps that hide their controls, replan-on-miss, and Dock and app-switch handling.</li>
+          <li>About 2.8k lines of Swift. The engine is pure and kept separate from the platform code.</li>
+          <li>Ships as a universal .dmg, ad-hoc signed.</li>
+        </ul>
+        <p class="stack">Swift · macOS Accessibility · REST · LLM APIs</p>
+        <div class="row"><a class="btn" href="https://github.com/kahlio76/Ghost" target="_blank" rel="noopener">source on GitHub</a><a class="btn" href="https://github.com/kahlio76/Ghost/releases/latest" target="_blank" rel="noopener">download the .dmg</a></div>
+      </section>
+
+      <section class="pane" data-name="chronokey" data-group="projects" data-tag="15 builds" data-cmd="cat projects/chronokey" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/chronokey</span></p>
+        <div class="head"><h2>chronokey</h2><span class="tag">15 builds</span></div>
+        <p class="lede">My custom mechanical keyboard business. 15 builds delivered to 12 paying customers.</p>
+        <div class="demo">
+          <div class="bar"><span><b>qc</b> switch tester</span><span id="kcount">0 / 61 tested</span></div>
+          <div class="body">
+            <div class="kb" id="kb"></div>
+            <div class="row">
+              <button type="button" class="btn primary" id="kstart">start typing test</button>
+              <button type="button" class="btn" id="kreset">reset</button>
+            </div>
+            <div class="out" id="kout">A switch test: press each key and check that it reports its place in the matrix. Click a key, or start the test and use your own keyboard.</div>
+          </div>
+        </div>
+        <ul>
+          <li>I spec each board, source the PCB, assemble it, flash QMK/VIA firmware, and run QC.</li>
+          <li>Diagnosed and repaired build failures (dead switches, shorted matrix columns, case fitment) with a multimeter and a soldering iron.</li>
+          <li>Fed each root cause back into sourcing and assembly to cut defects on later builds.</li>
+        </ul>
+        <p class="stack">soldering · QMK/VIA · PCB sourcing · QC · 2024 to present</p>
+      </section>
+
+      <section class="pane" data-name="acheron" data-group="projects" data-tag="patent" data-cmd="cat projects/acheron" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/acheron</span></p>
+        <div class="head"><h2>acheron</h2><span class="tag">provisional patent</span></div>
+        <p class="lede">Acheron Hospitality Smart Systems. A smart hospitality system that automates in-room settings from guest check-in.</p>
+        <ul>
+          <li>Inventor and system designer. I own the system architecture and security logic.</li>
+          <li>Provisional patent filed on the design.</li>
+        </ul>
+        <p class="stack">systems design · security · 2024 to present</p>
+      </section>
+
+      <section class="pane" data-name="oeis-a060957" data-group="projects" data-tag="parked" data-cmd="cat projects/oeis-a060957" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/oeis-a060957</span></p>
+        <div class="head"><h2>oeis-a060957</h2><span class="tag parked">parked, unproved</span></div>
+        <p class="lede">A proof attempt on an open conjecture about OEIS sequence A060957.</p>
+        <dl class="kv">
+          <dt>writeup</dt><dd>786 lines, partial proof, every gap marked</dd>
+          <dt>search</dt><dd>125 scripts in C and Python</dd>
+          <dt>status</dt><dd>parked, unproved</dd>
+        </dl>
+        <ul>
+          <li>The Lean 4 file is only the conjecture statement from Formal Conjectures. There is no formal proof.</li>
+        </ul>
+        <p class="stack">C · Python · number theory</p>
+        <div class="row"><a class="btn" href="https://github.com/kahlio76/OeisA60957/blob/main/PROOF.md" target="_blank" rel="noopener">read PROOF.md</a><a class="btn" href="https://github.com/kahlio76/OeisA60957" target="_blank" rel="noopener">source on GitHub</a></div>
+      </section>
+
+      <section class="pane" data-name="lofi-cafe" data-group="projects" data-tag="web" data-cmd="cat projects/lofi-cafe" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/lofi-cafe</span></p>
+        <div class="head"><h2>lofi-cafe</h2><span class="tag">web</span></div>
+        <p class="lede">A Spotify web client in a single-page JavaScript app.</p>
+        <ul>
+          <li>OAuth 2.0 with the PKCE flow, so there is no client secret in the browser.</li>
+          <li>Spotify Web API for the library, Web Playback SDK for in-browser playback.</li>
+        </ul>
+        <p class="stack">JavaScript · OAuth 2.0 PKCE · Spotify Web API</p>
+        <div class="row"><a class="btn" href="https://github.com/kahlio76/lofi-cafe" target="_blank" rel="noopener">source on GitHub</a></div>
+      </section>
+
+      <section class="pane" data-name="anagram-solver" data-group="projects" data-tag="web" data-cmd="cat projects/anagram-solver" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/anagram-solver</span></p>
+        <div class="head"><h2>anagram-solver</h2><span class="tag">web</span></div>
+        <p class="lede">An in-browser anagram solver that searches a 370k-word dictionary, deployed on GitHub Pages.</p>
+        <div class="demo">
+          <div class="bar"><span><b>demo</b> same idea, tiny sample dictionary</span><span id="acount"></span></div>
+          <div class="body">
+            <div class="row"><input type="text" id="aq" value="listen" aria-label="Letters to unscramble" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+            <div class="out" id="aout"></div>
+          </div>
+        </div>
+        <p class="stack">JavaScript · GitHub Pages</p>
+        <div class="row"><a class="btn" href="https://github.com/kahlio76/anagramsolver" target="_blank" rel="noopener">source on GitHub</a></div>
+      </section>
+
+      <section class="pane" data-name="ir-trigger" data-group="projects" data-tag="hardware" data-cmd="cat projects/ir-trigger" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/ir-trigger</span></p>
+        <div class="head"><h2>ir-trigger</h2><span class="tag">hardware</span></div>
+        <p class="lede">IR presence-triggered desktop automation. Break the beam and the computer does something.</p>
+        <ul>
+          <li>An Arduino IR break-beam sensor streams trip events over serial.</li>
+          <li>A host-side script listens on the port and fires a configurable keyboard shortcut.</li>
+        </ul>
+        <p class="stack">Arduino · IR sensor · serial · host-side scripting · 2025</p>
+      </section>
+
+      <section class="pane" data-name="pc-builds" data-group="projects" data-tag="hardware" data-cmd="cat projects/pc-builds" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/pc-builds</span></p>
+        <div class="head"><h2>pc-builds</h2><span class="tag">hardware</span></div>
+        <p class="lede">Three PCs built from components, and the debugging that came with them.</p>
+        <ul>
+          <li>Diagnosed POST and boot failures at the hardware level.</li>
+          <li>Debugged XMP memory instability under load: tested raised DRAM voltage in BIOS, reverted, and settled on a lower stable memory speed.</li>
+        </ul>
+        <p class="stack">hardware assembly · firmware · troubleshooting · 2022 to present</p>
+      </section>
+
+      <section class="pane" data-name="experience.log" data-cmd="cat experience.log" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat experience.log</span></p>
+        <ul class="log">
+          <li><time>Aug 2026 to now</time><div><strong>Purdue Electric Racing</strong><p>High Voltage subteam member. PCB work in Altium Designer for the team's electric formula car.</p></div></li>
+          <li><time>2024 to now</time><div><strong>Founder and Lead Hardware Builder, Chronokey</strong><p>Custom mechanical keyboard business. 15 client-specific builds for 12 paying customers.</p></div></li>
+          <li><time>Summer 2025</time><div><strong>Applied Cybersecurity Intern, Georgetown University</strong><p>Analyzed cybersecurity risks for the Vietnam Veterans Memorial Fund as the client of a Georgetown-led project. Delivered and deployed security recommendations on a one-week, full-time timeline.</p></div></li>
+          <li><time>2022 to 2026</time><div><strong>Vice President and Math Instructor, CSK Math Circle Foundation</strong><p>Taught weekly math classes to underserved students, 275+ volunteer hours. Redesigned the curriculum and trained volunteer instructors. Two Gold President's Volunteer Service Awards.</p></div></li>
+          <li><time>2025 to 2026</time><div><strong>Founder and President, Cybersecurity Club</strong><p>Arnold O. Beckman High School. Built the curriculum and ran hands-on labs on threat modeling and network defense.</p></div></li>
+          <li><time>2024 to 2026</time><div><strong>Founder and President, Machine Learning and AI Club</strong><p>Arnold O. Beckman High School.</p></div></li>
+        </ul>
+      </section>
+
+      <section class="pane" data-name="skills.toml" data-cmd="cat skills.toml" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat skills.toml</span></p>
+        <dl class="kv toml">
+          <dt>languages</dt><dd>C, C++, Python, Java, JavaScript, Swift</dd>
+          <dt>hardware</dt><dd>soldering and hot-swap rework, multimeter debugging, QMK/VIA keyboard firmware, PC assembly and troubleshooting, Arduino, Altium Designer</dd>
+          <dt>tools</dt><dd>Git, React, Tailwind, Electron, REST APIs, OAuth 2.0, LLM APIs</dd>
+          <dt>certs</dt><dd>AWS Certified Cloud Practitioner, Java Certified Developer</dd>
+          <dt>spoken</dt><dd>English, Telugu, Tamil, French</dd>
+        </dl>
+      </section>
+
+      <section class="pane" data-name="links" data-cmd="ls links/" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">ls links/</span></p>
+        <div id="linkList" class="row"></div>
+        <p class="note">The email address is an inbox screened by my AI agent.</p>
+        <p id="linkEmpty" class="note" hidden>No links set yet. Fill in the LINKS block at the top of the script.</p>
+      </section>
+
+      <div class="row pager">
+        <button type="button" class="btn" id="prev">‹ prev</button>
+        <button type="button" class="btn" id="next">next ›</button>
+      </div>
+    </main>
+  </div>
+
+  <div class="foot">
+    <div id="out" hidden></div>
+    <div class="line">
+      <span class="mode" id="mode">NORMAL</span>
+      <label for="cmd"><span class="h">yuvan@purdue </span><span>›</span></label>
+      <input id="cmd" type="text" placeholder="type help, ls, or a file name" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span class="bit" id="bit" aria-hidden="true"><span>[·_·]</span> bit: idle</span>
+      <button type="button" id="themeBtn" title="Cycle theme">theme: mono</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- EDIT ME -------------------------------------------------------------
+// Anything left empty is hidden on the page.
+const LINKS = {
+  resume:    "Yuvan_Babu_Resume.pdf",   // keep this PDF next to index.html
+  github:    "https://github.com/kahlio76",
+  linkedin:  "https://www.linkedin.com/in/yuvan-babu-1455b5384/",
+  instagram: "https://www.instagram.com/yu.vanb/",
+  email:     "yuvan.muse@agentmail.to"  // agent-screened inbox, shown as text people can copy
+};
+// --------------------------------------------------------------------------
+
+(function () {
+  const root = document.documentElement;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const SKINS = ["mono", "ember", "bistre", "phosphor", "parchment"];
+  const panes = [...document.querySelectorAll(".pane")];
+  const names = panes.map((p) => p.dataset.name);
+  let here = 0;
+
+  // ---------- output line + bit ----------
+  const out = $("out");
+  function say(html) { out.innerHTML = html; out.hidden = false; }
+  const bit = $("bit");
+  let sleepT, calmT;
+  function wake(face, word) {
+    bit.innerHTML = "<span>" + face + "</span> bit: " + word;
+    clearTimeout(calmT); clearTimeout(sleepT);
+    calmT = setTimeout(() => (bit.innerHTML = "<span>[·_·]</span> bit: idle"), 1400);
+    sleepT = setTimeout(() => (bit.innerHTML = "<span>[-_-]</span> bit: asleep"), 25000);
+  }
+
+  // ---------- file wheel + pane switching ----------
+  const tree = $("tree");
+  const wheelMQ = matchMedia("(min-width: 761px)");
+  let dragged = false;
+  const buttons = panes.map((p, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = '<span class="n">' + String(i + 1).padStart(2, "0") + (p.dataset.group ? '<span class="g"> ' + p.dataset.group + "/</span>" : "") + '</span><span class="name">' + p.dataset.name + "</span>" + (p.dataset.tag ? '<span class="t">' + p.dataset.tag + "</span>" : "");
+    b.addEventListener("click", () => { if (!dragged) show(i); });
+    tree.appendChild(b);
+    return b;
+  });
+  const hintEl = document.createElement("div");
+  hintEl.className = "hint"; hintEl.textContent = "scroll · drag · j k";
+  tree.appendChild(hintEl);
+  // Cards sit on a circle whose hub is off to the right, so the open file is the leftmost card
+  // and its neighbours fan away above and below. Offsets wrap, so the wheel loops.
+  function layout() {
+    const n = panes.length, R = 330, STEP = 11;
+    buttons.forEach((b, k) => {
+      let d = k - here;
+      if (d > n / 2) d -= n; else if (d < -n / 2) d += n;
+      const a = Math.abs(d), th = (d * STEP * Math.PI) / 180;
+      b.style.setProperty("--x", (12 + R * (1 - Math.cos(th))).toFixed(1) + "px");
+      b.style.setProperty("--y", (R * Math.sin(th)).toFixed(1) + "px");
+      b.style.setProperty("--r", (-d * STEP) + "deg");
+      b.style.setProperty("--s", a ? "0.82" : "1.12");
+      b.style.setProperty("--o", [1, 0.75, 0.5, 0.3, 0.13][a] || 0);
+      b.style.pointerEvents = a > 4 ? "none" : "";
+      b.tabIndex = a > 4 ? -1 : 0;
+    });
+  }
+  function show(i, quiet) {
+    here = (i + panes.length) % panes.length;
+    panes.forEach((p, k) => (p.hidden = k !== here));
+    buttons.forEach((b, k) => { b.classList.toggle("on", k === here); if (k === here) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    layout();
+    const p = panes[here];
+    $("path").textContent = "~/" + (p.dataset.group ? p.dataset.group + "/" : "") + p.dataset.name;
+    $("count").textContent = (here + 1) + " / " + panes.length;
+    $("main").scrollTop = 0;
+    printPane(p);
+    if (!wheelMQ.matches) buttons[here].scrollIntoView({ block: "nearest", inline: "nearest" });
+    try { history.replaceState(null, "", "#" + p.dataset.name.replace(/[^\w.-]/g, "")); } catch (e) {}
+    if (kbLive) stopKb();
+    if (!quiet) wake("[°o°]", "probing");
+  }
+  let acc = 0, lastStep = 0;
+  tree.addEventListener("wheel", (e) => {
+    if (!wheelMQ.matches) return;
+    e.preventDefault();
+    acc += e.deltaY;
+    const now = Date.now();
+    if (Math.abs(acc) > 40 && now - lastStep > 110) { show(here + (acc > 0 ? 1 : -1)); acc = 0; lastStep = now; }
+  }, { passive: false });
+  let dragY = null;
+  tree.addEventListener("pointerdown", (e) => { if (wheelMQ.matches) { dragY = e.clientY; dragged = false; } });
+  addEventListener("pointermove", (e) => {
+    if (dragY === null) return;
+    const dy = e.clientY - dragY;
+    if (Math.abs(dy) > 45) { show(here + (dy < 0 ? 1 : -1)); dragY = e.clientY; dragged = true; }
+  });
+  addEventListener("pointerup", () => { dragY = null; setTimeout(() => (dragged = false), 0); });
+  $("prev").addEventListener("click", () => show(here - 1));
+  $("next").addEventListener("click", () => show(here + 1));
+  document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(names.indexOf(b.dataset.go))));
+  function find(q) {
+    q = q.replace(/^.*\//, "").toLowerCase();
+    if (!q) return -1;
+    let i = names.indexOf(q);
+    if (i < 0) i = names.findIndex((n) => n.startsWith(q));
+    if (i < 0) i = names.findIndex((n) => n.includes(q));
+    return i;
+  }
+
+  // ---------- links ----------
+  let any = false;
+  for (const [name, val] of Object.entries(LINKS)) {
+    if (!val) continue;
+    any = true;
+    const make = () => {
+      if (name === "email") {
+        const el = document.createElement("button");
+        el.type = "button"; el.className = "btn"; el.textContent = val; el.title = "Copy email address";
+        el.addEventListener("click", () => navigator.clipboard.writeText(val).then(() => say("copied " + esc(val)), () => say(esc(val))));
+        return el;
+      }
+      const el = document.createElement("a");
+      el.className = "btn"; el.href = val; el.textContent = name; el.target = "_blank"; el.rel = "noopener";
+      return el;
+    };
+    $("linkList").appendChild(make());
+    if (name === "resume" || name === "github") $("heroLinks").appendChild(make());
+  }
+  $("linkEmpty").hidden = any;
+
+  // ---------- themes ----------
+  let redraw = () => {};
+  function setSkin(name) {
+    if (!SKINS.includes(name)) return false;
+    if (name === "mono") root.removeAttribute("data-skin"); else root.setAttribute("data-skin", name);
+    $("themeBtn").textContent = "theme: " + name;
+    redraw();
+    return true;
+  }
+  const skin = () => root.getAttribute("data-skin") || "mono";
+  $("themeBtn").addEventListener("click", () => setSkin(SKINS[(SKINS.indexOf(skin()) + 1) % SKINS.length]));
+
+  // ---------- shell prompt ----------
+  const cmd = $("cmd");
+  const HELP = "<b>ls</b>              list files\n<b>cd</b> / <b>cat</b> / <b>open</b> &lt;name&gt;   open a file (tab completes)\n<b>next</b>, <b>prev</b>      step through the gallery\n<b>theme</b> &lt;name&gt;    " + SKINS.join(" | ") + "\n<b>clear</b>           clear this output\nkeys outside the prompt: <b>j k</b> or <b>← →</b> step, <b>/</b> focus prompt, <b>t</b> theme";
+  function run(raw) {
+    const parts = raw.trim().replace(/^:/, "").split(/\s+/);
+    const name = (parts[0] || "").toLowerCase(), arg = (parts[1] || "").toLowerCase();
+    if (!name) return;
+    wake("[^_^]", "on it");
+    if (name === "help" || name === "h" || name === "?") say(HELP);
+    else if (name === "ls") say(panes.map((p) => (p.dataset.group ? p.dataset.group + "/" : "") + "<b>" + p.dataset.name + "</b>").join("   "));
+    else if (name === "clear") out.hidden = true;
+    else if (name === "next" || name === "n") show(here + 1);
+    else if (name === "prev" || name === "p") show(here - 1);
+    else if (name === "pwd") say($("path").textContent);
+    else if (name === "theme") say(arg ? (setSkin(arg) ? "theme set to <b>" + arg + "</b>" : "no theme called " + esc(arg) + ". try: " + SKINS.join(", ")) : "themes: " + SKINS.join(", "));
+    else if (name === "sudo") say("yuvan is not in the sudoers file. This incident will be reported to nobody.");
+    else if (name === "exit" || name === "q") say("this is a website. close the tab like everyone else.");
+    else if (name === "cd" || name === "cat" || name === "open" || name === "vim" || name === "less") {
+      if (!arg || arg === ".." || arg === "~") return show(0);
+      const i = find(arg);
+      if (i < 0) say(name + ": " + esc(arg) + ": no such file. try <b>ls</b>"); else show(i);
+    } else {
+      const i = find(name);
+      if (i < 0) say("command not found: " + esc(name) + ". try <b>help</b>"); else show(i);
+    }
+  }
+  cmd.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { run(cmd.value); cmd.value = ""; }
+    else if (e.key === "Escape") cmd.blur();
+    else if (e.key === "Tab") {
+      const m = cmd.value.match(/^(.*\s)?(\S+)$/);
+      if (!m) return;
+      const i = find(m[2]);
+      if (i >= 0) { e.preventDefault(); cmd.value = (m[1] || "") + names[i]; }
+    }
+  });
+  cmd.addEventListener("focus", () => ($("mode").textContent = "INSERT"));
+  cmd.addEventListener("blur", () => ($("mode").textContent = "NORMAL"));
+
+  // ---------- ghost demo: toy fuzzy matcher over a two-level settings tree ----------
+  const CATS = [
+    ["Displays", "screen monitor", [["Brightness", "[■■■■□]", "bright dim lower raise darker"], ["Night Shift", "off", "warm colors evening orange blue light"], ["Resolution", "default", "scaling text size bigger smaller"], ["True Tone", "on", "ambient color tint"]]],
+    ["Sound", "audio", [["Output volume", "[■■■□□]", "loud quiet louder speakers"], ["Output device", "speakers", "headphones audio switch"], ["Mute", "off", "silence silent"]]],
+    ["Bluetooth", "wireless", [["Bluetooth", "on", "enable disable"], ["Pair new device", "pair", "headphones mouse connect airpods"]]],
+    ["Wi-Fi", "wifi internet network", [["Wi-Fi", "on", "wifi wireless enable disable"], ["Known networks", "open", "forget saved password"], ["Ask to join networks", "off", "prompt hotspot"]]],
+    ["Printers & Scanners", "printing", [["Add printer", "add", "new install setup"], ["Default printer", "last used", "choose"], ["Print queue", "open", "stuck job cancel pending"]]],
+    ["Battery", "power", [["Low Power Mode", "off", "saver energy drain"], ["Battery health", "open", "capacity condition"], ["Show percentage", "on", "percent menu bar"]]],
+    ["Keyboard", "keys typing", [["Key repeat rate", "[■■■□□]", "fast slow held"], ["Keyboard brightness", "auto", "backlight dark"], ["Dictation", "off", "voice speech talk"]]],
+    ["Trackpad", "pointer", [["Tracking speed", "[■■□□□]", "cursor fast slow sensitivity"], ["Natural scrolling", "on", "scroll direction reverse inverted"], ["Tap to click", "off", "tap press"]]]
+  ];
+  const STOP = new Set("a an the my i is it to do how where what can on of in for me turn find get make too and with".split(" "));
+  const grams = (w) => { const s = new Set(); for (let i = 0; i < w.length - 1; i++) s.add(w.slice(i, i + 2)); return s; };
+  function dice(a, b) {
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+    const A = grams(a), B = grams(b); let n = 0;
+    A.forEach((g) => { if (B.has(g)) n++; });
+    return (2 * n) / (A.size + B.size);
+  }
+  const words = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !STOP.has(w));
+  const stage = $("stage"), gcur = $("gcur");
+  const slow = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 760);
+  let ghostRun = 0;
+  const leaves = [];
+  const catEls = CATS.map(([label, hint, subs], ci) => {
+    const wrap = document.createElement("div");
+    const head = document.createElement("button");
+    head.type = "button"; head.className = "ctl";
+    head.innerHTML = "<span><em>▸</em>" + esc(label) + "</span><i>" + subs.length + " settings</i>";
+    head.setAttribute("aria-expanded", "false");
+    const box = document.createElement("div");
+    box.className = "subs"; box.hidden = true;
+    subs.forEach(([sl, state, sh]) => {
+      const row = document.createElement("div");
+      row.className = "ctl"; row.innerHTML = "<span>" + esc(sl) + "</span><i>" + state + "</i>";
+      box.appendChild(row);
+      leaves.push({ ci, label: sl, el: row, pool: words(sl).map((w) => [w, 1]).concat(words(sh).map((w) => [w, 0.8]), words(label + " " + hint).map((w) => [w, 0.6])) });
+    });
+    head.addEventListener("click", () => { ghostRun++; clearHits(); openCat(box.hidden ? ci : -1); });
+    wrap.append(head, box); stage.insertBefore(wrap, gcur);
+    return { head, box };
+  });
+  function openCat(i) {
+    catEls.forEach((c, k) => { c.box.hidden = k !== i; c.head.setAttribute("aria-expanded", k === i); c.head.querySelector("em").textContent = k === i ? "▾" : "▸"; });
+  }
+  function clearHits() { stage.querySelectorAll(".hit").forEach((e) => e.classList.remove("hit")); }
+  function fly(el) {
+    const s = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+    gcur.style.transform = "translate(" + (r.left - s.left + r.width * 0.6) + "px," + (r.top - s.top + r.height * 0.4) + "px)";
+  }
+  function ghostFind(q) {
+    const my = ++ghostRun, qs = words(q);
+    clearHits();
+    if (!qs.length) { $("gout").textContent = "Give it a few words to match on."; return; }
+    const scored = leaves.map((l) => [qs.reduce((sum, w) => sum + Math.max(...l.pool.map(([p, wt]) => dice(w, p) * wt)), 0) / qs.length, l]).sort((a, b) => b[0] - a[0]);
+    const [score, leaf] = scored[0];
+    if (score < 0.45) {
+      $("gout").innerHTML = "Best offline score was <b>" + score.toFixed(2) + "</b>, under the 0.45 cutoff in this demo. In the real app this is where the opt-in LLM planner takes over.";
+      wake("[o_o]", "unsure");
+      return;
+    }
+    const cat = catEls[leaf.ci], run2 = scored[1];
+    $("gout").innerHTML = "Plan: open <b>" + esc(CATS[leaf.ci][0]) + "</b>, then <b>" + esc(leaf.label) + "</b>. Score <b>" + score.toFixed(2) + "</b>, runner-up " + esc(CATS[run2[1].ci][0]) + " › " + esc(run2[1].label) + " at " + run2[0].toFixed(2) + ". No network call.";
+    wake("[^_^]", "found it");
+    fly(cat.head);
+    setTimeout(() => {
+      if (my !== ghostRun) return;
+      cat.head.classList.add("hit");
+      openCat(leaf.ci);
+      requestAnimationFrame(() => {
+        fly(leaf.el);
+        setTimeout(() => { if (my !== ghostRun) return; cat.head.classList.remove("hit"); leaf.el.classList.add("hit"); }, slow());
+      });
+    }, slow());
+  }
+  ["lower the brightness", "pair my headphones", "printer job is stuck", "reverse scroll direction", "order a pizza"].forEach((q) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn"; b.textContent = q;
+    b.addEventListener("click", () => { $("gq").value = q; ghostFind(q); });
+    $("gchips").appendChild(b);
+  });
+  $("gfind").addEventListener("click", () => ghostFind($("gq").value));
+  $("gq").addEventListener("keydown", (e) => { if (e.key === "Enter") ghostFind($("gq").value); });
+
+  // ---------- chronokey: switch tester ----------
+  const ROWS = [
+    [["Escape","esc",1],["Digit1","1",1],["Digit2","2",1],["Digit3","3",1],["Digit4","4",1],["Digit5","5",1],["Digit6","6",1],["Digit7","7",1],["Digit8","8",1],["Digit9","9",1],["Digit0","0",1],["Minus","-",1],["Equal","=",1],["Backspace","bksp",2]],
+    [["Tab","tab",1.5],["KeyQ","q",1],["KeyW","w",1],["KeyE","e",1],["KeyR","r",1],["KeyT","t",1],["KeyY","y",1],["KeyU","u",1],["KeyI","i",1],["KeyO","o",1],["KeyP","p",1],["BracketLeft","[",1],["BracketRight","]",1],["Backslash","\\",1.5]],
+    [["CapsLock","caps",1.75],["KeyA","a",1],["KeyS","s",1],["KeyD","d",1],["KeyF","f",1],["KeyG","g",1],["KeyH","h",1],["KeyJ","j",1],["KeyK","k",1],["KeyL","l",1],["Semicolon",";",1],["Quote","'",1],["Enter","enter",2.25]],
+    [["ShiftLeft","shift",2.25],["KeyZ","z",1],["KeyX","x",1],["KeyC","c",1],["KeyV","v",1],["KeyB","b",1],["KeyN","n",1],["KeyM","m",1],["Comma",",",1],["Period",".",1],["Slash","/",1],["ShiftRight","shift",2.75]],
+    [["ControlLeft","ctrl",1.25],["AltLeft","alt",1.25],["MetaLeft","cmd",1.25],["Space","space",6.25],["MetaRight","cmd",1.25],["AltRight","alt",1.25],["Fn","fn",1.25],["ControlRight","ctrl",1.25]]
+  ];
+  const kb = $("kb"), keyEls = {}, tested = new Set();
+  let kbLive = false, total = 0;
+  ROWS.forEach((row, r) => {
+    const rowEl = document.createElement("div"); rowEl.className = "r";
+    row.forEach(([code, label, u], c) => {
+      const k = document.createElement("button");
+      k.type = "button"; k.className = "key"; k.textContent = label; k.style.flexGrow = u; k.tabIndex = -1;
+      k.addEventListener("click", () => press(code));
+      keyEls[code] = { el: k, r, c, label }; total++;
+      rowEl.appendChild(k);
+    });
+    kb.appendChild(rowEl);
+  });
+  function press(code) {
+    const k = keyEls[code];
+    if (!k) { $("kout").innerHTML = "<b>" + esc(code) + "</b> isn't on this 60% layout."; return; }
+    tested.add(code);
+    k.el.classList.add("ok", "down");
+    setTimeout(() => k.el.classList.remove("down"), 140);
+    $("kcount").textContent = tested.size + " / " + total + " tested";
+    $("kout").innerHTML = "<b>" + esc(k.label) + "</b> reports at matrix row <b>" + k.r + "</b>, col <b>" + k.c + "</b>." + (tested.size === total ? " All " + total + " switches pass. Board ships." : "");
+  }
+  function stopKb() { kbLive = false; kb.classList.remove("live"); $("kstart").textContent = "start typing test"; }
+  $("kstart").addEventListener("click", (e) => {
+    if (kbLive) return stopKb();
+    kbLive = true; kb.classList.add("live"); e.currentTarget.textContent = "stop (esc)"; e.currentTarget.blur();
+    $("kout").textContent = "Listening. Hit every key you can. Esc stops the test.";
+  });
+  $("kreset").addEventListener("click", () => {
+    tested.clear(); Object.values(keyEls).forEach((k) => k.el.classList.remove("ok"));
+    $("kcount").textContent = "0 / " + total + " tested"; $("kout").textContent = "Cleared. Fresh board on the bench.";
+  });
+  $("kcount").textContent = "0 / " + total + " tested";
+
+  // ---------- anagram demo ----------
+  const DICT = "listen silent enlist tinsel inlets stale least steal slate tales teals care race acre stream master tamers spare pears reaps parse spear night thing earth heart hater angel angle glean dusty study below elbow bowel notes stone tones onset alert alter later trace crate react cater caret resist sister items times mites emits smite pots stop tops spot post opts evil live vile veil arts rats star tsar lemon melon cheap peach brag grab garb save vase meat team tame mate odor door rood".split(" ");
+  const sig = (w) => w.toLowerCase().replace(/[^a-z]/g, "").split("").sort().join("");
+  const index = {};
+  DICT.forEach((w) => (index[sig(w)] = index[sig(w)] || []).push(w));
+  $("acount").textContent = DICT.length + " words loaded";
+  function solve() {
+    const q = $("aq").value, s = sig(q);
+    if (!s) { $("aout").textContent = "Type some letters."; return; }
+    const hits = (index[s] || []).filter((w) => w !== q.toLowerCase().trim());
+    $("aout").innerHTML = hits.length ? "<b>" + hits.join("</b>  <b>") + "</b>" : "Nothing in this " + DICT.length + "-word sample. The deployed solver checks 370k. Try: stale, spare, trace, items, pots.";
+  }
+  $("aq").addEventListener("input", solve);
+  solve();
+
+  // ---------- whoami: trace router ----------
+  (function () {
+    const cv = $("traces"), ctx = cv.getContext("2d"), G = 12;
+    const DIRS = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let W = 0, H = 0, agents = [], col = {}, frame = 0;
+    function colors() { const s = getComputedStyle(root); col = { bg: s.getPropertyValue("--panel").trim(), a: s.getPropertyValue("--accent").trim(), b: s.getPropertyValue("--brass").trim(), l: s.getPropertyValue("--line").trim() }; }
+    function size() {
+      const d = Math.min(devicePixelRatio || 1, 2);
+      W = cv.clientWidth; H = cv.clientHeight;
+      if (!W) return;
+      cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+      ctx.fillStyle = col.bg; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = col.l;
+      for (let x = G; x < W; x += G * 2) for (let y = G; y < H; y += G * 2) ctx.fillRect(x, y, 1, 1);
+      if (still) { for (let i = 0; i < 40; i++) spawn(Math.random() * W, Math.random() * H); while (agents.length) step(); }
+    }
+    function via(x, y, c) { ctx.fillStyle = col.bg; ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, 6.3); ctx.fill(); ctx.stroke(); }
+    function spawn(x, y) {
+      if (agents.length > 60) return;
+      const c = Math.random() < 0.3 ? col.a : col.b;
+      x = Math.round(x / G) * G; y = Math.round(y / G) * G;
+      via(x, y, c);
+      agents.push({ x, y, d: (Math.random() * 8) | 0, life: 6 + ((Math.random() * 26) | 0), c });
+    }
+    function step() {
+      agents = agents.filter((a) => {
+        if (Math.random() < 0.22) a.d = (a.d + (Math.random() < 0.5 ? 1 : 7)) % 8;
+        const nx = a.x + DIRS[a.d][0] * G, ny = a.y + DIRS[a.d][1] * G;
+        if (nx < 0 || ny < 0 || nx > W || ny > H || --a.life < 0) { via(a.x, a.y, a.c); return false; }
+        ctx.strokeStyle = a.c; ctx.lineWidth = 1.5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(nx, ny); ctx.stroke();
+        a.x = nx; a.y = ny; return true;
+      });
+    }
+    function tick() {
+      requestAnimationFrame(tick);
+      if (!cv.offsetParent) return;
+      if (!W) { size(); return; }
+      if (++frame % 3) return;
+      ctx.globalAlpha = 0.035; ctx.fillStyle = col.bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+      if (agents.length < 5 && Math.random() < 0.25) spawn(Math.random() * W, Math.random() * H);
+      step();
+    }
+    cv.addEventListener("pointermove", (e) => { if (still) return; const r = cv.getBoundingClientRect(); if (Math.random() < 0.45) spawn(e.clientX - r.left, e.clientY - r.top); wake("[°o°]", "routing"); });
+    redraw = () => { colors(); agents = []; size(); };
+    addEventListener("resize", redraw);
+    redraw();
+    if (!still) tick();
+  })();
+
+  // ---------- terminal print-in: each file streams out like command output ----------
+  const gaze = { mx: null, my: null, tx: 0, ty: 0, printing: false, erase: 0 };
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let job = null;
+  function printPane(p) {
+    if (job) job.finish(true);
+    if (calm) return;
+    const units = [];
+    [...p.children].forEach((c) => { if (c.matches("ul, dl")) units.push(...c.children); else units.push(c); });
+    const items = units.filter((el) => !el.hidden).map((el) => {
+      const atomic = el.matches(".demo, .row"), nodes = [];
+      if (!atomic) {
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = w.nextNode())) if (n.nodeValue.trim()) nodes.push([n, n.nodeValue]);
+        nodes.forEach(([n]) => (n.nodeValue = ""));
+      }
+      el.classList.add("wait");
+      return { el, nodes, atomic };
+    });
+    const total = items.reduce((s, it) => s + it.nodes.reduce((a, [, t]) => a + t.length, 0), 0);
+    const rate = Math.max(6, Math.ceil(total / 42));
+    const box = $("main");
+    let ui = 0, ni = 0, ci = 0, last = null;
+    function aim(x, y) { const b = box.getBoundingClientRect(); gaze.tx = x; gaze.ty = Math.min(y, b.bottom - 6); }
+    const me = {
+      finish(replaced) {
+        items.forEach((it) => { it.el.classList.remove("wait"); it.nodes.forEach(([n, t]) => (n.nodeValue = t)); });
+        job = null; gaze.printing = false; gaze.erase = replaced ? 0 : 1;
+      }
+    };
+    job = me; gaze.printing = true; gaze.erase = 0;
+    function tick() {
+      if (job !== me) return;
+      let budget = rate;
+      while (budget > 0 && ui < items.length) {
+        const it = items[ui];
+        it.el.classList.remove("wait");
+        if (it.atomic || !it.nodes.length) {
+          const r = it.el.getBoundingClientRect();
+          aim(r.left + 10, r.bottom - 8); last = null;
+          ui++; ni = 0; ci = 0; budget = 0; continue;
+        }
+        const [node, full] = it.nodes[ni];
+        const take = Math.min(budget, full.length - ci);
+        ci += take; budget -= take; node.nodeValue = full.slice(0, ci); last = node;
+        if (ci >= full.length) { ni++; ci = 0; if (ni >= it.nodes.length) { ui++; ni = 0; } }
+      }
+      if (last) {
+        const rg = document.createRange();
+        rg.selectNodeContents(last); rg.collapse(false);
+        const r = rg.getClientRects()[0] || rg.getBoundingClientRect();
+        if (r && (r.left || r.top)) aim(r.right + 4, r.top + r.height / 2);
+      }
+      if (ui < items.length) requestAnimationFrame(tick); else me.finish(false);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- the eye: ASCII eye built from my own keywords. It watches the text while a file
+  // prints, then the pointer. Sight lines are drawn as characters on an overlay canvas. ----------
+  (function () {
+    const el = $("eye"), W = 27, H = 11;
+    const TEXT = "yuvan·babu·computer·engineering·purdue·chip·design·vlsi·ghost·chronokey·acheron·lofi-cafe·anagram·high·voltage·";
+    const cv = document.createElement("canvas");
+    cv.className = "gaze"; cv.setAttribute("aria-hidden", "true");
+    document.body.appendChild(cv);
+    const ctx = cv.getContext("2d");
+    let lid = 1, ex = 0, ey = 0, lastKey = "", vw = 0, vh = 0, n = 0, col = {}, dirty = false;
+    function fit() {
+      const d = Math.min(devicePixelRatio || 1, 2);
+      vw = innerWidth; vh = innerHeight;
+      cv.width = vw * d; cv.height = vh * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    }
+    function drawEye() {
+      const px = ex * 5.5, py = ey * 2.2;
+      let html = "", t = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const cx = x - (W - 1) / 2, cy = y - (H - 1) / 2;
+          const nx = cx / ((W - 1) / 2), ny = cy / ((H - 1) / 2);
+          if (Math.abs(ny) > (1 - nx * nx) * lid + 0.04) { html += " "; continue; }
+          const ch = TEXT[t++ % TEXT.length], d = Math.hypot((cx - px) * 0.6, cy - py);
+          html += d < 1.3 ? '<span class="p">#</span>' : d < 3.1 ? '<span class="i">' + ch + "</span>" : ch;
+        }
+        html += "\n";
+      }
+      el.innerHTML = html;
+    }
+    // A sight line: one glyph every 9px from the rim of the eye out to the target.
+    // frac < 1 draws only the part nearest the eye, which is how the line gets erased.
+    function line(x0, y0, x1, y1, ch, color, frac, cap) {
+      const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy), START = 64, STEP = 9;
+      const count = Math.floor((L - START - 12) / STEP);
+      if (count < 1) return;
+      const m = Math.ceil(count * frac);
+      ctx.fillStyle = color;
+      for (let i = 0; i < m; i++) { const t = (START + i * STEP) / L; ctx.fillText(ch, x0 + dx * t, y0 + dy * t); }
+      if (cap && frac >= 1) ctx.fillText(cap, x1, y1);
+    }
+    function frame() {
+      requestAnimationFrame(frame);
+      const r = el.getBoundingClientRect();
+      if (dirty) { ctx.clearRect(0, 0, vw, vh); dirty = false; }
+      if (!r.width) return;
+      if (!(n++ % 40)) { const s = getComputedStyle(root); col = { d: s.getPropertyValue("--dim").trim(), a: s.getPropertyValue("--accent").trim() }; }
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      ctx.font = '700 9px "IBM Plex Mono", ui-monospace, monospace';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      let target = null;
+      if (gaze.mx !== null) { line(cx, cy, gaze.mx, gaze.my, "·", col.d, 1); target = [gaze.mx, gaze.my]; dirty = true; }
+      if (gaze.printing) { line(cx, cy, gaze.tx, gaze.ty, "+", col.a, 1, "▮"); target = [gaze.tx, gaze.ty]; dirty = true; }
+      else if (gaze.erase > 0) { line(cx, cy, gaze.tx, gaze.ty, "+", col.a, gaze.erase); gaze.erase = Math.max(0, gaze.erase - 0.06); dirty = true; }
+      let lx = 0, ly = 0;
+      if (target) {
+        const dx = target[0] - cx, dy = target[1] - cy, dist = Math.hypot(dx, dy) || 1, mag = Math.min(1, dist / 420);
+        lx = (dx / dist) * mag; ly = (dy / dist) * mag;
+      }
+      ex += (lx - ex) * 0.3; ey += (ly - ey) * 0.3;
+      const key = ex.toFixed(2) + ey.toFixed(2) + lid;
+      if (key !== lastKey) { lastKey = key; drawEye(); }
+    }
+    addEventListener("pointermove", (e) => { gaze.mx = e.clientX; gaze.my = e.clientY; });
+    root.addEventListener("pointerleave", () => { gaze.mx = null; });
+    addEventListener("resize", fit);
+    if (!calm) setInterval(() => { lid = 0.12; setTimeout(() => (lid = 1), 140); }, 5600);
+    fit(); drawEye(); frame();
+  })();
+
+  // ---------- global keys ----------
+  addEventListener("keydown", (e) => {
+    if (kbLive) {
+      if (e.key === "Escape") return stopKb();
+      if (e.metaKey && e.code !== "MetaLeft" && e.code !== "MetaRight") return;
+      e.preventDefault(); press(e.code); return;
+    }
+    const t = e.target;
+    if (t.tagName === "INPUT" || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "/" || e.key === ":") { e.preventDefault(); cmd.focus(); }
+    else if (e.key === "j" || e.key === "ArrowRight") show(here + 1);
+    else if (e.key === "k" || e.key === "ArrowLeft") show(here - 1);
+    else if (e.key === "t") $("themeBtn").click();
+  });
+
+  // ---------- boot ----------
+  // Every visit starts in mono. A theme picked with the button or the prompt lasts for that visit only.
+  try { localStorage.removeItem("skin"); } catch (e) {}
+  setSkin("mono");
+  const start = find(decodeURIComponent(location.hash.slice(1)));
+  show(start < 0 ? 0 : start, true);
+  wake("[·_·]", "idle");
+})();
+</script>
+</body>
+</html>
