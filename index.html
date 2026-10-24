@@ -276,7 +276,7 @@ button.ctl:hover { border-color: var(--dim); }
               <button type="button" class="btn primary" id="psend">send</button>
               <button type="button" class="btn" id="pplay">replay</button>
             </div>
-            <div class="out" id="pout">Press <b>replay</b> to stream a conversation in, or type and send.</div>
+            <div class="out" id="pout">Press <b>replay</b> to stream a conversation in, or send something and the group chat answers.</div>
           </div>
         </div>
         <ul>
@@ -789,7 +789,33 @@ const LINKS = {
       const t = $("pq").value.trim(); if (!t) return;
       $("pq").value = ""; run++;
       bump("<b>→ POST /channels/…/messages</b>  waiting for the gateway echo");
-      setTimeout(() => { add("Y", "you", t, true); bump("<b>← op 0 MESSAGE_CREATE</b>  author=you  echoed back over the socket"); }, 350);
+      const id = run;
+      setTimeout(() => {
+        if (id !== run) return;
+        add("Y", "you", t, true); bump("<b>← op 0 MESSAGE_CREATE</b>  author=you  echoed back over the socket");
+        setTimeout(() => { if (id === run) bump("<b>← op 0 TYPING_START</b>  user=" + next[0][1]); }, 500);
+        setTimeout(() => {
+          if (id !== run) return;
+          const [av, who] = next.shift(); next.push([av, who]);
+          add(av, who, reply(t), false);
+          bump("<b>← op 0 MESSAGE_CREATE</b>  author=" + esc(who) + "  channel=#group-chat");
+        }, 1400 + Math.random() * 700);
+      }, 350);
+    }
+    const next = [["K", "kai"], ["M", "mira"], ["D", "dev"]];
+    const REPLIES = {
+      q: ["no idea, ask dev", "honestly? yes", "why are you asking me", "depends who's asking"],
+      hi: ["hey", "yo", "look who finally showed up"],
+      lol: ["LMAO", "why is that actually funny", "not you laughing at your own joke"],
+      any: ["real", "say less", "bro what", "that's crazy", "screenshotting this", "we'll talk about this tomorrow", "ok but why did this ping me"]
+    };
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    function reply(t) {
+      const l = t.toLowerCase();
+      if (/\b(hi|hey|yo|hello|sup)\b/.test(l)) return pick(REPLIES.hi);
+      if (/(lol|lmao|haha)/.test(l)) return pick(REPLIES.lol);
+      if (l.includes("?")) return pick(REPLIES.q);
+      return pick(REPLIES.any);
     }
     $("psend").addEventListener("click", send);
     $("pq").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); send(); } });
