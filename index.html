@@ -198,6 +198,17 @@ button.ctl:hover { border-color: var(--dim); }
 .p5m.me { animation-name: p5me; }
 @keyframes p5me { from { opacity: 0; transform: translateX(1.5rem) skewX(8deg); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .p5m { animation: none; } }
+/* claude-pad demo */
+.cpleds { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.cpled { font: inherit; color: var(--dim); background: var(--bg); border: 1px solid var(--line); padding: 0.4rem 0.7rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.cpled.sel { color: var(--fg); border-color: var(--fg); }
+.cpled i { width: 0.8rem; height: 0.8rem; border-radius: 50%; background: #2a2a2a; box-shadow: 0 0 0 1px var(--line); }
+.cpled.idle i { background: #8c8c8c; }
+.cpled.work i { background: #e0a030; }
+.cpled.done i { background: #4dd06a; }
+.cpled.wait i { background: #ff4d4d; animation: cpblink 1s steps(1) infinite; }
+@keyframes cpblink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .cpled.wait i { animation: none; } }
 </style>
 </head>
 <body>
@@ -261,6 +272,34 @@ button.ctl:hover { border-color: var(--dim); }
         </ul>
         <p class="stack">Swift · macOS Accessibility · REST · LLM APIs</p>
         <div class="row"><a class="btn" href="https://github.com/kahlio76/Ghost" target="_blank" rel="noopener">source on GitHub</a><a class="btn" href="https://github.com/kahlio76/Ghost/releases/latest" target="_blank" rel="noopener">download the .dmg</a></div>
+      </section>
+
+      <section class="pane" data-name="claude-pad" data-group="projects" data-tag="in progress" data-cmd="cat projects/claude-pad" hidden>
+        <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/claude-pad</span></p>
+        <div class="head"><h2>claude-pad</h2><span class="tag">in progress</span></div>
+        <p class="lede">A physical keypad for Claude Code. When Claude asks permission to run something, a key lights up; press Approve or Deny and it answers. Four LEDs show what each session is doing.</p>
+        <div class="demo">
+          <div class="bar"><span><b>demo</b> a toy model of the daemon, running in your browser</span><span id="cpcount">0 answered</span></div>
+          <div class="body">
+            <div class="cpleds" id="cpleds"></div>
+            <div class="out" id="cpreq"></div>
+            <div class="row">
+              <button type="button" class="btn" id="cpnew">ask permission</button>
+              <button type="button" class="btn primary" id="cpA">approve</button>
+              <button type="button" class="btn" id="cpD">deny</button>
+              <button type="button" class="btn" id="cpW">always (hold 1 s)</button>
+            </div>
+            <div class="out" id="cpout">Press <b>ask permission</b> to send a request to one of the sessions, then answer it with the keys. Click an LED to select that session.</div>
+          </div>
+        </div>
+        <ul>
+          <li>The keypad logic is a portable C core: 11 keys, 4 session slots, an FN layer. Every press remembers the exact request it was meant for, so a key held down can't approve a different prompt that shows up later. 20 behavior tests.</li>
+          <li>A Swift daemon and a Claude Code PermissionRequest hook keep each request open until you answer from the pad. If nobody does, Claude's normal prompt appears, and a pad that disconnects can never approve anything. 18 end-to-end tests drive the real daemon and hook.</li>
+          <li>Pico firmware in C: 5 ms switch debounce, a plain-text serial protocol and WS2812 status LEDs, with 42 host-side tests. It builds for the RP2040 today.</li>
+          <li>Status: working end to end with a keyboard-driven stand-in for the pad. The switches, board and enclosure are next; it hasn't run on physical hardware yet. Longer term, the key logic is a candidate for a Tiny Tapeout silicon version.</li>
+        </ul>
+        <p class="stack">C11 · Swift · RP2040 / pico-sdk · PIO · WS2812 · Claude Code hooks</p>
+        <div class="row"><a class="btn" href="https://github.com/kahlio76/claude-pad" target="_blank" rel="noopener">source on GitHub</a></div>
       </section>
 
       <section class="pane" data-name="persona-discord" data-group="projects" data-tag="ios" data-cmd="cat projects/persona-discord" hidden>
@@ -758,6 +797,88 @@ const LINKS = {
   $("aq").addEventListener("input", solve);
   solve();
 
+  // ---------- claude-pad demo ----------
+  (function () {
+    const REQS = [["Bash", "npm test"], ["Edit", "src/auth.ts"], ["Bash", "rm -rf build"], ["WebFetch", "docs.python.org"], ["Write", "notes.md"]];
+    const slots = ["idle", "work", "off", "off"].map((state) => ({ state, q: [], always: new Set() }));
+    let sel = 0, answered = 0, nextReq = 0, holdAt = 0;
+    const out = $("cpout"), req = $("cpreq"), W = $("cpW");
+    const name = (i) => "S" + (i + 1);
+    const say = (html) => { out.innerHTML = html; };
+
+    function paint() {
+      $("cpleds").innerHTML = slots.map((s, i) => {
+        const st = s.q.length ? "wait" : s.state;
+        return '<button type="button" class="cpled ' + st + (i === sel ? " sel" : "") + '" data-i="' + i +
+          '" aria-label="' + name(i) + ", " + (st === "wait" ? "asking permission" : st) + '"><i></i>' + name(i) + "</button>";
+      }).join("");
+      const head = slots[sel].q[0];
+      req.innerHTML = head
+        ? "<b>" + name(sel) + " is asking:</b> " + esc(head.tool) + " " + esc(head.cmd) + (slots[sel].q.length > 1 ? "  (+" + (slots[sel].q.length - 1) + " more)" : "")
+        : "Nothing waiting on " + name(sel) + ".";
+      $("cpcount").textContent = answered + " answered";
+    }
+
+    function answer(kind) {
+      const s = slots[sel], head = s.q[0];
+      if (!head) { say("Nothing is waiting on " + name(sel) + ", so the key does nothing. The real core ignores it too."); return; }
+      s.q.shift(); answered++;
+      s.state = kind === "deny" ? "idle" : "work";
+      let extra = "";
+      if (kind === "always") {
+        s.always.add(head.tool);
+        s.q = s.q.filter((r) => r.tool !== head.tool || (answered++, false));
+        extra = "  (" + esc(head.tool) + " is now auto-allowed on " + name(sel) + ")";
+      }
+      say("<b>→ " + (kind === "deny" ? "deny" : "allow") + "</b>  " + esc(head.tool) + " " + esc(head.cmd) + extra);
+      paint();
+    }
+
+    function ask() {
+      const occupied = slots.map((s, i) => i).filter((i) => slots[i].state !== "off");
+      const i = occupied[Math.floor(Math.random() * occupied.length)];
+      const [tool, cmd] = REQS[nextReq++ % REQS.length];
+      const s = slots[i];
+      if (s.always.has(tool)) {
+        answered++; paint();
+        say("<b>" + name(i) + "</b> asked for " + esc(tool) + " " + esc(cmd) + ": auto-allowed, because you held Always earlier.");
+        return;
+      }
+      if (!slots[sel].q.length) sel = i; // like the daemon: jump to the session that needs you
+      s.q.push({ tool, cmd });
+      paint();
+      say("<b>→ hook</b>  " + name(i) + " is waiting on you. On the real pad its LED blinks red.");
+    }
+
+    // Always needs a 1 s hold; a quick tap is ignored on purpose.
+    function holdStart() { if (!holdAt) { holdAt = performance.now(); W.textContent = "holding…"; } }
+    function holdEnd(cancel) {
+      if (!holdAt) return;
+      const held = performance.now() - holdAt;
+      holdAt = 0; W.textContent = "always (hold 1 s)";
+      if (cancel) return;
+      if (held >= 1000) answer("always");
+      else say("Always needs a full 1 s hold, so a quick tap is ignored on purpose.");
+    }
+
+    $("cpnew").addEventListener("click", ask);
+    $("cpA").addEventListener("click", () => answer("allow"));
+    $("cpD").addEventListener("click", () => answer("deny"));
+    W.addEventListener("pointerdown", holdStart);
+    W.addEventListener("pointerup", () => holdEnd(false));
+    W.addEventListener("pointerleave", () => holdEnd(true));
+    W.addEventListener("pointercancel", () => holdEnd(true));
+    W.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); holdStart(); } });
+    W.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") holdEnd(false); });
+    $("cpleds").addEventListener("click", (e) => {
+      const b = e.target.closest(".cpled"); if (!b) return;
+      const i = +b.dataset.i;
+      if (slots[i].state === "off") { say(name(i) + " is empty, so tapping it does nothing. (FN + tap would start a session.)"); return; }
+      sel = i; paint(); say("selected <b>" + name(i) + "</b>");
+    });
+    paint();
+  })();
+
   // ---------- persona-discord demo ----------
   (function () {
     const box = $("p5"), out = $("pout");
@@ -936,7 +1057,7 @@ const LINKS = {
   // prints, then the pointer. Sight lines are drawn as characters on an overlay canvas. ----------
   (function () {
     const el = $("eye"), W = 27, H = 11;
-    const TEXT = "yuvan·babu·computer·engineering·purdue·chip·design·vlsi·ghost·persona-discord·chronokey·acheron·lofi-cafe·anagram·high·voltage·";
+    const TEXT = "yuvan·babu·computer·engineering·purdue·chip·design·vlsi·ghost·claude-pad·persona-discord·chronokey·acheron·lofi-cafe·anagram·high·voltage·";
     const cv = document.createElement("canvas");
     cv.className = "gaze"; cv.setAttribute("aria-hidden", "true");
     document.body.appendChild(cv);
