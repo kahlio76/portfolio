@@ -266,7 +266,7 @@ button.ctl:hover { border-color: var(--dim); }
       <section class="pane" data-name="persona-discord" data-group="projects" data-tag="ios" data-cmd="cat projects/persona-discord" hidden>
         <p class="prompt"><span class="u">yuvan@purdue</span> ~ <span class="s">›</span> <span class="c">cat projects/persona-discord</span></p>
         <div class="head"><h2>persona-discord</h2><span class="tag">ios · native</span></div>
-        <p class="lede">A native iOS Discord client that looks like the Persona 5 phone. Real Discord messages, streamed live over the gateway, rendered in P5's jagged chat bubbles.</p>
+        <p class="lede">A native iOS Discord client that looks like the Persona 5 phone. Servers and DMs both work, streamed live over the gateway and rendered in P5's jagged chat bubbles.</p>
         <div class="demo">
           <div class="bar"><span><b>demo</b> the chat UI, with a fake gateway feeding it</span><span id="pcount">0 events</span></div>
           <div class="body">
@@ -281,7 +281,7 @@ button.ctl:hover { border-color: var(--dim); }
         </div>
         <ul>
           <li>Started from an Android P5 messenger demo that was only a mockup, with no backend and nothing to talk to. I threw out the Android code and rebuilt it from scratch in Swift as a native iOS app.</li>
-          <li>Wired it to the Discord API: REST for history and sending, and a persistent WebSocket gateway connection so messages land the moment they're sent instead of on a poll.</li>
+          <li>Wired it to the Discord API: REST for history and sending across servers and DMs, and a persistent WebSocket gateway connection so messages land the moment they're sent instead of on a poll.</li>
           <li>Reworked the UI on top of the original look: redrew the bubble shapes, added the connector stripes that tie each bubble to its speaker, and swapped the typeface.</li>
           <li>I use it on my own phone. Installed straight from Xcode rather than the App Store.</li>
         </ul>
